@@ -87,6 +87,27 @@ def main(
 
         fig.show()
 
+    if viz:
+        # y_train = 1 - y_train
+        X_train[:, 1] *= -1
+
+        # model.y = y_train[idx]
+        model.x = X_train[idx]
+
+        fig = px.scatter(x=X_train[:, 0], y=X_train[:, 1], color=y_train)
+
+        fig.update_traces(mode="markers", marker_line_width=2)
+
+        xx, yy, zz = decision_boundaries(X_train, model)
+        xx = xx[0]
+        yy = yy[:, 0]
+
+        print(xx)
+
+        fig.add_trace(go.Contour(x=xx, y=yy, z=zz, opacity=0.5))
+
+        fig.show()
+
 
 class SimpleMemory(tf.keras.Model):
     def __init__(
@@ -106,29 +127,32 @@ class SimpleMemory(tf.keras.Model):
         self.y = y
 
         self.f = tf.keras.Sequential(
-            [
-                tf.keras.layers.Dense(
-                    n_neurons, activation="relu" if i < n_layers - 1 else None
-                )
-                for i in range(n_layers)
-            ]
+            flatten(
+                [
+                    [
+                        tf.keras.layers.Dense(n_neurons, activation="elu"),
+                        tf.keras.layers.LayerNormalization(),
+                    ]
+                    for i in range(n_layers)
+                ]
+            )
         )
-        self.attention = tf.keras.layers.Attention(use_scale=True)
+        self.attention = tf.keras.layers.Attention()
 
-    def call(self, inputs):
+    def call(self, inputs, training=None):
         batch_size = tf.shape(inputs)[0]
 
         xq = inputs[:, None, :]
 
-        x = tf.constant(self.x)[None]
-        x = tf.tile(x, [batch_size, 1, 1])
+        xdb = tf.constant(self.x)[None]
+        xdb = tf.tile(xdb, [batch_size, 1, 1])
 
-        y = tf.constant(self.y, dtype=tf.float32)[None, :, None]
-        y = tf.tile(y, [batch_size, 1, 1])
+        ydb = tf.constant(self.y, dtype=tf.float32)[None, :, None]
+        ydb = tf.tile(y, [batch_size, 1, 1])
 
         q = self.f(xq)
-        k = self.f(x)
-        v = y
+        k = self.f(xdb)
+        v = ydb
 
         net = self.attention([q, v, k])[:, 0]
 
@@ -153,12 +177,16 @@ def decision_boundaries(X, model, n=20):
     # Obtain labels for each point in mesh using the model.
     points = np.stack([xx.ravel(), yy.ravel()], axis=1)
 
-    Z = model.predict(points)
+    Z = model(points).numpy()
     Z = (Z > 0.5).astype(np.int32)
 
     zz = Z.reshape(xx.shape)
 
     return xx, yy, zz
+
+
+def flatten(x):
+    return sum(x, [])
 
 
 if __name__ == "__main__":
