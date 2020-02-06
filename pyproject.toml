@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "simple-attention"
+version = "0.1.0"
+description = ""
+authors = ["Cristian Garcia <cgarcia.e88@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+tensorflow = "^2.1.0"
+numpy = "^1.18.1"
+pandas = "^1.0.1"
+scikit-learn = "^0.22.1"
+typer = "^0.0.8"
+matplotlib = "^3.1.3"
+plotly = "^4.5.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

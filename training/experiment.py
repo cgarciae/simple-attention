@@ -14,15 +14,13 @@ from .tf_keras_transformer import MultiHeadSelfAttention
 
 def main(
     data_path: Path = typer.Option(...),
-    n_classes: int = typer.Option(...),
-    memory_size: int = 8,
     n_layers: int = 1,
     n_neurons: int = 16,
-    n_heads: int = 4,
     epochs: int = 400,
     batch_size: int = 16,
     lr: float = 0.001,
     viz: bool = False,
+    dp_percentage: float = 0.4,
 ) -> None:
 
     train_path = data_path / "training-set.csv"
@@ -42,17 +40,11 @@ def main(
     X_train = transform.fit_transform(X_train)
     X_test = transform.transform(X_test)
 
-    idx = np.random.choice(400, 70)
+    N = len(X_train)
+    idx = np.random.choice(N, int(N * dp_percentage))
 
     model = SimpleMemory(
-        x=X_train[idx],
-        y=y_train[idx],
-        memory_size=memory_size,
-        memory_output_size=2,
-        n_labels=n_classes,
-        n_heads=n_heads,
-        n_layers=n_layers,
-        n_neurons=n_neurons,
+        x=X_train[idx], y=y_train[idx], n_layers=n_layers, n_neurons=n_neurons,
     )
     model(X_train[:2])
     model.summary()
@@ -66,77 +58,165 @@ def main(
     model.fit(
         x=X_train,
         y=y_train,
-        batch_size=4,
+        batch_size=batch_size,
         epochs=epochs,
         validation_data=(X_test, y_test),
     )
     model.summary()
 
     if viz:
-        fig = px.scatter(x=X_train[:, 0], y=X_train[:, 1], color=y_train)
 
-        fig.update_traces(mode="markers", marker_line_width=2)
-
-        xx, yy, zz = decision_boundaries(X_train, model)
-        xx = xx[0]
-        yy = yy[:, 0]
-
-        print(xx)
-
-        fig.add_trace(go.Contour(x=xx, y=yy, z=zz, opacity=0.5))
-
+        # plain scatter
+        sizes = np.ones((N,), dtype=np.float32) * 9
+        sizes[idx] = 12
+        opacity = np.ones((N,), dtype=np.float32)
+        fig = go.Figure(
+            [
+                go.Scatter(
+                    x=X_train[:, 0],
+                    y=X_train[:, 1],
+                    marker=go.scatter.Marker(
+                        color=y_train,
+                        size=sizes,
+                        line_width=2,
+                        line_color="DarkSlateGrey",
+                        opacity=opacity,
+                    ),
+                    mode="markers",
+                )
+            ]
+        )
+        fig.update_layout(template="simple_white")
         fig.show()
 
-    if viz:
-        # y_train = 1 - y_train
-        X_train[:, 1] *= -1
+        # only db
 
-        # model.y = y_train[idx]
-        model.x = X_train[idx]
+        sizes = np.ones((N,), dtype=np.float32) * 9
+        sizes[idx] = 12
+        opacity = np.ones((N,), dtype=np.float32) * 0.01
+        opacity[idx] = 1
+        fig = go.Figure(
+            [
+                go.Scatter(
+                    x=X_train[:, 0],
+                    y=X_train[:, 1],
+                    marker=go.scatter.Marker(
+                        color=y_train,
+                        size=sizes,
+                        line_width=2,
+                        line_color="DarkSlateGrey",
+                        opacity=opacity,
+                    ),
+                    mode="markers",
+                )
+            ]
+        )
+        fig.update_layout(template="simple_white")
+        fig.show()
 
-        fig = px.scatter(x=X_train[:, 0], y=X_train[:, 1], color=y_train)
-
-        fig.update_traces(mode="markers", marker_line_width=2)
-
+        # decision boundary
+        sizes = np.ones((N,), dtype=np.float32) * 9
+        sizes[idx] = 12
+        opacity = np.ones((N,), dtype=np.float32)
+        fig = go.Figure(
+            [
+                go.Scatter(
+                    x=X_train[:, 0],
+                    y=X_train[:, 1],
+                    marker=go.scatter.Marker(
+                        color=y_train,
+                        size=sizes,
+                        line_width=2,
+                        line_color="DarkSlateGrey",
+                        opacity=opacity,
+                    ),
+                    mode="markers",
+                )
+            ]
+        )
+        fig.update_layout(template="simple_white")
         xx, yy, zz = decision_boundaries(X_train, model)
         xx = xx[0]
         yy = yy[:, 0]
-
-        print(xx)
-
         fig.add_trace(go.Contour(x=xx, y=yy, z=zz, opacity=0.5))
+        fig.show()
 
+        # invert points
+        X_train[:, 1] *= -1
+
+        # get original decision boundary with new points
+
+        sizes = np.ones((N,), dtype=np.float32) * 9
+        sizes[idx] = 12
+        opacity = np.ones((N,), dtype=np.float32)
+        fig = go.Figure(
+            [
+                go.Scatter(
+                    x=X_train[:, 0],
+                    y=X_train[:, 1],
+                    marker=go.scatter.Marker(
+                        color=y_train,
+                        size=sizes,
+                        line_width=2,
+                        line_color="DarkSlateGrey",
+                        opacity=opacity,
+                    ),
+                    mode="markers",
+                )
+            ]
+        )
+        fig.update_layout(template="simple_white")
+        xx, yy, zz = decision_boundaries(X_train, model)
+        xx = xx[0]
+        yy = yy[:, 0]
+        fig.add_trace(go.Contour(x=xx, y=yy, z=zz, opacity=0.5))
+        fig.show()
+
+        # with updated database
+        model.x = X_train[idx]
+
+        sizes = np.ones((N,), dtype=np.float32) * 9
+        sizes[idx] = 12
+        opacity = np.ones((N,), dtype=np.float32)
+        fig = go.Figure(
+            [
+                go.Scatter(
+                    x=X_train[:, 0],
+                    y=X_train[:, 1],
+                    marker=go.scatter.Marker(
+                        color=y_train,
+                        size=sizes,
+                        line_width=2,
+                        line_color="DarkSlateGrey",
+                        opacity=opacity,
+                    ),
+                    mode="markers",
+                )
+            ]
+        )
+        fig.update_layout(template="simple_white")
+        xx, yy, zz = decision_boundaries(X_train, model)
+        xx = xx[0]
+        yy = yy[:, 0]
+        fig.add_trace(go.Contour(x=xx, y=yy, z=zz, opacity=0.5))
         fig.show()
 
 
 class SimpleMemory(tf.keras.Model):
     def __init__(
-        self,
-        x,
-        y,
-        memory_size,
-        memory_output_size,
-        n_labels,
-        n_heads=4,
-        n_layers=1,
-        n_neurons=16,
+        self, x, y, n_layers, n_neurons,
     ):
         super().__init__()
 
         self.x = x
         self.y = y
 
-        self.f = tf.keras.Sequential(
-            flatten(
-                [
-                    [
-                        tf.keras.layers.Dense(n_neurons, activation="elu"),
-                        tf.keras.layers.LayerNormalization(),
-                    ]
-                    for i in range(n_layers)
-                ]
-            )
-        )
+        self.f = tf.keras.Sequential()
+
+        for _ in range(n_layers):
+            self.f.add(tf.keras.layers.Dense(n_neurons, activation="elu"))
+            self.f.add(tf.keras.layers.LayerNormalization())
+
         self.attention = tf.keras.layers.Attention()
 
     def call(self, inputs, training=None):
@@ -148,7 +228,7 @@ class SimpleMemory(tf.keras.Model):
         xdb = tf.tile(xdb, [batch_size, 1, 1])
 
         ydb = tf.constant(self.y, dtype=tf.float32)[None, :, None]
-        ydb = tf.tile(y, [batch_size, 1, 1])
+        ydb = tf.tile(ydb, [batch_size, 1, 1])
 
         q = self.f(xq)
         k = self.f(xdb)

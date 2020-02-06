@@ -1,5 +1,1 @@
-tensorflow-gpu
-numpy
-pandas
-scikit-learn
-typer
+tensorflow numpy pandas scikit-learn typer
