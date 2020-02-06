@@ -14,5 +14,5 @@ pip install -r requirements.txt
 
 ## Run
 ```bash
-bash training/experiment.sh
+bash training/experiment.sh --viz
 ```
